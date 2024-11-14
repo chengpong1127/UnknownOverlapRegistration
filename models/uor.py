@@ -44,6 +44,8 @@ def UOR(point_clouds: list) -> list:
     features = extract_features(point_clouds)
     
     PQD_pairs = []
+    max_dij = 0
+    min_dij = 1e6
     for i in range(len(features)):
         for j in range(i+1, len(features)):
             distance_array, p_indices, q_indices = extract_distance_array(features[i], features[j])
@@ -51,6 +53,16 @@ def UOR(point_clouds: list) -> list:
             p_indices = p_indices[indices]
             q_indices = q_indices[indices]
             PQD_pairs.append((i, j, p_indices, q_indices, dij))
+            max_dij = max(max_dij, 1 / dij)
+            min_dij = min(min_dij, 1 / dij)
+    
+    PQC_pairs = []
+    for (i, j, p_indices, q_indices, dij) in PQD_pairs:
+        if dij != 0:
+            cij = (1 / dij - min_dij) / (max_dij - min_dij)
+        else:
+            cij = 1.0
+        PQC_pairs.append((i, j, p_indices, q_indices, cij))
 
     
     
