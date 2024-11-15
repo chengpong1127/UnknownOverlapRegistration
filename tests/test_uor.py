@@ -1,9 +1,10 @@
-from models.uor import extract_features, compute_dij, extract_distance_array, compute_graph, compute_central_node
+from models.uor import extract_features, compute_dij, extract_distance_array, compute_graph, compute_central_node, UOR
 import torch
 from torchsparse import SparseTensor
 import open3d as o3d
 import numpy as np
 import networkx as nx
+from .utils import create_test_point_clouds
 
 
 def test_extract_features():
@@ -76,3 +77,10 @@ def test_compute_central_node():
 
     tree_graph = nx.balanced_tree(2, 2)
     assert compute_central_node(tree_graph) == 0
+
+
+def test_UOR():
+    point_clouds = create_test_point_clouds(5, 100)
+    global_transforms = UOR(point_clouds, 0.5, 0.5, fine_registration_max_iter=10)
+    assert len(global_transforms) <= 5
+    assert all(t.shape == (4, 4) for t in global_transforms.values())
