@@ -54,6 +54,11 @@ def compute_graph(PQC_pairs: list, point_cloud_len: int, threshold: float) -> li
     
     return g
 
+def compute_central_node(graph: nx.Graph) -> int:
+    closeness_centrality = nx.closeness_centrality(graph)
+    central_node = max(closeness_centrality, key=closeness_centrality.get)
+    return central_node
+
 
 
 def UOR(point_clouds: list) -> list:
@@ -80,5 +85,6 @@ def UOR(point_clouds: list) -> list:
             cij = 1.0
         PQC_pairs.append((i, j, p_indices, q_indices, cij))
 
-    
+    graph = compute_graph(PQC_pairs, len(features), 0.5)
+    central_node = compute_central_node(graph)
     

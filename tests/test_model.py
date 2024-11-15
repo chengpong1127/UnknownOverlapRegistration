@@ -1,4 +1,4 @@
-from models.uor import extract_features, compute_dij, extract_distance_array, compute_graph
+from models.uor import extract_features, compute_dij, extract_distance_array, compute_graph, compute_central_node
 import torch
 from torchsparse import SparseTensor
 import open3d as o3d
@@ -62,3 +62,17 @@ def test_compute_graph():
         cij = next((c for (i, j, _, _, c) in PQC_pairs if (i == u and j == v) or (i == v and j == u)), None)
         assert cij is not None
         assert cij > threshold
+
+def test_compute_central_node():
+    star_graph = nx.star_graph(4)
+    assert compute_central_node(star_graph) == 0
+
+    path_graph = nx.path_graph(5)
+    assert compute_central_node(path_graph) == 2
+
+    complete_graph = nx.complete_graph(4)
+    central_node = compute_central_node(complete_graph)
+    assert central_node in complete_graph.nodes
+
+    tree_graph = nx.balanced_tree(2, 2)
+    assert compute_central_node(tree_graph) == 0
