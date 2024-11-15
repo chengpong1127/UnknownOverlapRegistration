@@ -5,6 +5,7 @@ import open3d as o3d
 import torch
 from torch import Tensor
 import networkx as nx
+from .fine_registration import fine_registration
 
 def extract_features(point_clouds: list, feature_dim = 32) -> list:
     fcgf_model = ResUNet(in_channels=3, out_channels=feature_dim, bn_momentum=0.1, normalize_feature=True, conv1_kernel_size=3)
@@ -38,21 +39,21 @@ def compute_dij(distance_array: Tensor, threshold: float) -> tuple:
     return dij, filtered_indices
 
 def compute_graph(PQC_pairs: list, point_cloud_len: int, threshold: float) -> list:
-    g = nx.Graph()
-    g.add_nodes_from(range(point_cloud_len))
+    graph = nx.Graph()
+    graph.add_nodes_from(range(point_cloud_len))
     sorted_PQC_pairs = sorted(PQC_pairs, key=lambda x: x[4], reverse=True)
     for (i, j, _, _, cij) in sorted_PQC_pairs:
-        if not nx.is_connected(g):
-            if cij > threshold and not g.has_edge(i, j):
-                g.add_edge(i, j)
+        if not nx.is_connected(graph):
+            if cij > threshold and not graph.has_edge(i, j):
+                graph.add_edge(i, j)
             elif cij <= threshold:
-                largest_cc = max(nx.connected_components(g), key=len)
-                nodes_to_remove = set(g.nodes) - largest_cc
-                g.remove_nodes_from(nodes_to_remove)
+                largest_cc = max(nx.connected_components(graph), key=len)
+                nodes_to_remove = set(graph.nodes) - largest_cc
+                graph.remove_nodes_from(nodes_to_remove)
         else:
             break
     
-    return g
+    return graph
 
 def compute_central_node(graph: nx.Graph) -> int:
     closeness_centrality = nx.closeness_centrality(graph)
@@ -61,7 +62,7 @@ def compute_central_node(graph: nx.Graph) -> int:
 
 
 
-def UOR(point_clouds: list) -> list:
+def UOR(point_clouds: list, eplison1: float, eplison2: float, fine_registration_max_iter: int = 20) -> list:
     features = extract_features(point_clouds)
     
     PQD_pairs = []
@@ -70,7 +71,7 @@ def UOR(point_clouds: list) -> list:
     for i in range(len(features)):
         for j in range(i+1, len(features)):
             distance_array, p_indices, q_indices = extract_distance_array(features[i], features[j])
-            dij, indices = compute_dij(distance_array, 0.5)
+            dij, indices = compute_dij(distance_array, eplison1)
             p_indices = p_indices[indices]
             q_indices = q_indices[indices]
             PQD_pairs.append((i, j, p_indices, q_indices, dij))
@@ -85,6 +86,8 @@ def UOR(point_clouds: list) -> list:
             cij = 1.0
         PQC_pairs.append((i, j, p_indices, q_indices, cij))
 
-    graph = compute_graph(PQC_pairs, len(features), 0.5)
+    graph = compute_graph(PQC_pairs, len(features), eplison2)
     central_node = compute_central_node(graph)
     
+    global_transforms = fine_registration(point_clouds, PQC_pairs, graph, central_node, max_iter=fine_registration_max_iter)
+    return global_transforms
