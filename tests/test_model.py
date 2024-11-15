@@ -1,8 +1,9 @@
-from models.uor import extract_features, compute_dij, extract_distance_array
+from models.uor import extract_features, compute_dij, extract_distance_array, compute_graph
 import torch
 from torchsparse import SparseTensor
 import open3d as o3d
 import numpy as np
+import networkx as nx
 
 
 def test_extract_features():
@@ -38,3 +39,26 @@ def test_extract_distance_array():
     assert torch.allclose(distance_array, expected_distances, atol=1e-2)
     assert torch.equal(q_index_array, expected_q_indices)
     assert torch.equal(p_index_array, torch.arange(len(distance_array)))
+
+def test_compute_graph():
+    PQC_pairs = [
+        (0, 1, [0, 1], [2, 3], 0.9),
+        (1, 2, [1, 2], [3, 4], 0.8),
+        (2, 3, [2, 3], [4, 5], 0.7),
+        (3, 4, [0, 2], [3, 5], 0.4),
+    ]
+    point_cloud_len = 5
+    threshold = 0.5
+
+    g = compute_graph(PQC_pairs, point_cloud_len, threshold)
+
+    assert nx.is_connected(g)
+
+    assert len(g.nodes) == point_cloud_len - 1
+
+    assert len(g.edges) == 3
+
+    for (u, v) in g.edges:
+        cij = next((c for (i, j, _, _, c) in PQC_pairs if (i == u and j == v) or (i == v and j == u)), None)
+        assert cij is not None
+        assert cij > threshold

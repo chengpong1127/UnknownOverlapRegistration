@@ -4,7 +4,7 @@ import numpy
 import open3d as o3d
 import torch
 from torch import Tensor
-
+import networkx as nx
 
 def extract_features(point_clouds: list, feature_dim = 32) -> list:
     fcgf_model = ResUNet(in_channels=3, out_channels=feature_dim, bn_momentum=0.1, normalize_feature=True, conv1_kernel_size=3)
@@ -36,8 +36,24 @@ def compute_dij(distance_array: Tensor, threshold: float) -> tuple:
         return 1e6, torch.tensor([], dtype=torch.long)
     dij = filtered_distances.mean().item()
     return dij, filtered_indices
+
+def compute_graph(PQC_pairs: list, point_cloud_len: int, threshold: float) -> list:
+    g = nx.Graph()
+    g.add_nodes_from(range(point_cloud_len))
+    sorted_PQC_pairs = sorted(PQC_pairs, key=lambda x: x[4], reverse=True)
+    for (i, j, _, _, cij) in sorted_PQC_pairs:
+        if not nx.is_connected(g):
+            if cij > threshold and not g.has_edge(i, j):
+                g.add_edge(i, j)
+            elif cij <= threshold:
+                largest_cc = max(nx.connected_components(g), key=len)
+                nodes_to_remove = set(g.nodes) - largest_cc
+                g.remove_nodes_from(nodes_to_remove)
+        else:
+            break
     
-    
+    return g
+
 
 
 def UOR(point_clouds: list) -> list:
