@@ -3,15 +3,28 @@ import open3d as o3d
 import torch
 import sys
 from pathlib import Path
+from urllib.request import urlretrieve
 sys.path.append(str(Path.cwd() / 'FCGF'))
 from model.resunet import ResUNetBN2C
 from util.misc import extract_features as extract_features_fcgf
 
+model_list = [
+    'https://node1.chrischoy.org/data/publications/fcgf/KITTI-v0.3-ResUNetBN2C-conv1-5-nout16.pth',
+    'https://node1.chrischoy.org/data/publications/fcgf/KITTI-v0.3-ResUNetBN2C-conv1-5-nout32.pth'
+]
+
+def check_model() -> None:
+    if not all(Path(model.split('/')[-1]).is_file() for model in model_list):
+        print('Downloading weights...')
+        for model in model_list:
+            urlretrieve(model, model.split('/')[-1])
+
 def extract_features(point_clouds: list, feature_dim: int = 16, voxel_size: float = 0.025) -> list:
+    check_model()
     if feature_dim == 16:
-        model_name = 'FCGF/ResUNetBN2C-16feat-5conv.pth'
+        model_name = model_list[0].split('/')[-1]
     elif feature_dim == 32:
-        model_name = 'FCGF/ResUNetBN2C-32feat-5conv.pth'
+        model_name = model_list[1].split('/')[-1]
         
     device = 'cpu'
     checkpoint = torch.load(model_name)
