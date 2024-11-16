@@ -1,5 +1,5 @@
 import numpy as np
-from models.fine_registration import irls_optimize, fine_registration
+from uor.fine_registration import irls_optimize, fine_registration
 import networkx as nx
 from .utils import create_test_point_clouds
 

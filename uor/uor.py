@@ -1,27 +1,17 @@
-from fcgf import ResUNet
-from torchsparse import SparseTensor
-import numpy
-import open3d as o3d
 import torch
 from torch import Tensor
 import networkx as nx
 from .fine_registration import fine_registration
+from .extract_features import extract_features
 
-def extract_features(point_clouds: list, feature_dim = 32) -> list:
-    fcgf_model = ResUNet(in_channels=3, out_channels=feature_dim, bn_momentum=0.1, normalize_feature=True, conv1_kernel_size=3)
-    point_sparse_tensor = [SparseTensor(
-        feats=torch.from_numpy(numpy.asarray(pcd.colors)).to(torch.float32), 
-        coords=torch.concatenate([torch.from_numpy(numpy.asarray(pcd.points)), torch.zeros((numpy.asarray(pcd.points).shape[0], 1))], dim=1).to(torch.int32))
-        for pcd in point_clouds]
-    features = [fcgf_model(pst) for pst in point_sparse_tensor]
-    return features
 
-def extract_distance_array(feature1: SparseTensor, feature2: SparseTensor) -> Tensor:
-    distance_array = torch.zeros(feature1.F.shape[0])
-    p_index_array = torch.arange(feature1.F.shape[0])
-    q_index_array = torch.zeros(feature1.F.shape[0], dtype=torch.long)
-    for i in range(feature1.F.shape[0]):
-        distances = torch.norm(feature2.F - feature1.F[i], dim=1)
+
+def extract_distance_array(feature1: Tensor, feature2: Tensor) -> Tensor:
+    distance_array = torch.zeros(feature1.shape[0])
+    p_index_array = torch.arange(feature1.shape[0])
+    q_index_array = torch.zeros(feature1.shape[0], dtype=torch.long)
+    for i in range(feature1.shape[0]):
+        distances = torch.norm(feature2 - feature1[i], dim=1)
         distance, index = distances.min(0)
         distance_array[i] = distance
         q_index_array[i] = index
@@ -62,8 +52,8 @@ def compute_central_node(graph: nx.Graph) -> int:
 
 
 
-def UOR(point_clouds: list, eplison1: float, eplison2: float, fine_registration_max_iter: int = 20) -> list:
-    features = extract_features(point_clouds)
+def UOR(point_clouds: list, eplison1: float, eplison2: float, feature_dim: int = 16, fine_registration_max_iter: int = 20) -> list:
+    features = extract_features(point_clouds, feature_dim)
     
     PQD_pairs = []
     max_dij = 0
