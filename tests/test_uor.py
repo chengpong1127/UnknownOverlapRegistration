@@ -1,5 +1,5 @@
-from models.uor import compute_dij, extract_distance_array, compute_graph, compute_central_node, UOR
-from models.extract_features import extract_features
+from uor.uor import compute_dij, extract_distance_array, compute_graph, compute_central_node, UOR
+from uor.extract_features import extract_features
 import torch
 from torchsparse import SparseTensor
 import open3d as o3d
