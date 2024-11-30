@@ -52,8 +52,8 @@ def compute_central_node(graph: nx.Graph) -> int:
 
 
 
-def UOR(point_clouds: list, eplison1: float, eplison2: float, feature_dim: int = 16, fine_registration_max_iter: int = 20) -> list:
-    features = extract_features(point_clouds, feature_dim)
+def UOR(point_clouds: list, eplison1: float, eplison2: float, feature_dim: int = 16, fine_registration_max_iter: int = 20, voxel_size=0.05) -> list:
+    features = extract_features(point_clouds, feature_dim, voxel_size)
     
     PQD_pairs = []
     max_dij = 0

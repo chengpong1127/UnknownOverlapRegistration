@@ -95,8 +95,16 @@ def create_7_Scenes_dataset(dir: str):
             ] 
             for scenes in batch_scene['scenes']
         ]
+        poses = [
+            [
+                np.loadtxt(pose_path)
+                for _, _, pose_path in scenes
+            ]
+            for scenes in batch_scene['scenes']
+        ]
         return {
             'scenes': scenes,
+            'poses': poses,
         }
 
     dataset.set_transform(transform)
