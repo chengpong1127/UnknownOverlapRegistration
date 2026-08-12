@@ -1,0 +1,80 @@
+name: Build TFLite 2.13 Cortex-A9
+
+on:
+  push:
+    branches:
+      - chatgpt-tflite-cortexa9-build-20260812
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout helper branch
+        uses: actions/checkout@v4
+
+      - name: Install ARM hard-float cross toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
+          arm-linux-gnueabihf-gcc --version
+
+      - name: Checkout TensorFlow 2.13.0
+        run: |
+          git clone --depth 1 --branch v2.13.0 https://github.com/tensorflow/tensorflow.git tensorflow_src
+
+      - name: Configure TensorFlow Lite C API for Cortex-A9
+        run: |
+          mkdir -p build_capi dist
+          CPU_FLAGS='-O3 -mcpu=cortex-a9 -march=armv7-a -mfpu=neon -mfloat-abi=hard -marm'
+          cmake \
+            -S tensorflow_src/tensorflow/lite/c \
+            -B build_capi \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_SYSTEM_NAME=Linux \
+            -DCMAKE_SYSTEM_PROCESSOR=armv7 \
+            -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc \
+            -DCMAKE_CXX_COMPILER=arm-linux-gnueabihf-g++ \
+            -DCMAKE_C_FLAGS="$CPU_FLAGS" \
+            -DCMAKE_CXX_FLAGS="$CPU_FLAGS" \
+            -DTFLITE_ENABLE_XNNPACK=OFF \
+            -DTFLITE_ENABLE_RUY=OFF \
+            -DTFLITE_ENABLE_GPU=OFF \
+            -DTFLITE_ENABLE_NNAPI=OFF \
+            -DTFLITE_ENABLE_MMAP=ON \
+            -DTFLITE_C_BUILD_SHARED_LIBS=ON
+
+      - name: Build
+        run: |
+          cmake --build build_capi -j 2
+
+      - name: Package and inspect
+        run: |
+          LIB=$(find build_capi -type f -name 'libtensorflowlite_c.so' -print -quit)
+          test -n "$LIB"
+          cp "$LIB" dist/libtensorflowlite_c.so
+          file dist/libtensorflowlite_c.so
+          arm-linux-gnueabihf-readelf -h dist/libtensorflowlite_c.so
+          arm-linux-gnueabihf-readelf -A dist/libtensorflowlite_c.so | tee dist/readelf_attributes.txt
+          arm-linux-gnueabihf-readelf -d dist/libtensorflowlite_c.so | grep NEEDED | tee dist/needed.txt
+          sha256sum dist/libtensorflowlite_c.so | tee dist/sha256.txt
+          cat > dist/BUILD_INFO.txt <<'EOF'
+          TensorFlow: v2.13.0
+          Target CPU: Cortex-A9
+          Architecture: ARMv7-A
+          FPU: NEON / VFPv3-compatible flags
+          ABI: hard-float
+          CFLAGS/CXXFLAGS: -O3 -mcpu=cortex-a9 -march=armv7-a -mfpu=neon -mfloat-abi=hard -marm
+          TFLITE_ENABLE_XNNPACK=OFF
+          TFLITE_ENABLE_RUY=OFF
+          EOF
+
+      - name: Upload Cortex-A9 runtime
+        uses: actions/upload-artifact@v4
+        with:
+          name: tflite213-cortexa9-capi
+          path: dist/
+          if-no-files-found: error
+          compression-level: 9
