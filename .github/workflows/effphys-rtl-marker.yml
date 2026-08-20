@@ -1,0 +1,58 @@
+name: EfficientPhys RTL pass-fail marker
+
+on:
+  push:
+    branches: [effphys-200fps-rtl-verify-20260820]
+    paths-ignore:
+      - 'effphys_validation/CI_*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: effphys-200fps-rtl-verify-20260820
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y iverilog verilator yosys
+      - id: run
+        shell: bash
+        run: |
+          set +e
+          mkdir -p /tmp/eff
+          base64 -d effphys_validation/effphys_validation_bundle.b64 >/tmp/bundle.bin
+          dec=$?
+          if [ $dec -eq 0 ] && gzip -t /tmp/bundle.bin 2>/dev/null && gzip -dc /tmp/bundle.bin | tar -tf - >/dev/null 2>&1; then
+            gzip -dc /tmp/bundle.bin | tar -xf - -C /tmp/eff
+          elif [ $dec -eq 0 ] && unzip -t /tmp/bundle.bin >/dev/null 2>&1; then
+            unzip -q /tmp/bundle.bin -d /tmp/eff
+          else
+            echo "decode failed or unsupported" >/tmp/log
+            echo "rc=97" >>$GITHUB_OUTPUT
+            exit 0
+          fi
+          cd /tmp/eff
+          if [ -f run_validation.sh ]; then bash run_validation.sh >/tmp/log 2>&1; rc=$?;
+          elif [ -f run_all.sh ]; then bash run_all.sh >/tmp/log 2>&1; rc=$?;
+          else echo NO_RUNNER >/tmp/log; rc=98; fi
+          echo "rc=$rc" >>$GITHUB_OUTPUT
+          exit 0
+      - name: Commit marker
+        if: always()
+        shell: bash
+        run: |
+          rm -f effphys_validation/CI_PASS_RTL_SIM.txt effphys_validation/CI_FAIL_RTL_SIM.txt
+          rc='${{ steps.run.outputs.rc }}'
+          { echo "RUN_RC=$rc"; iverilog -V 2>&1 | head -n1; verilator --version; yosys -V; cat /tmp/log 2>/dev/null || true; } > /tmp/marker.txt
+          if [ "$rc" = "0" ]; then cp /tmp/marker.txt effphys_validation/CI_PASS_RTL_SIM.txt; else cp /tmp/marker.txt effphys_validation/CI_FAIL_RTL_SIM.txt; fi
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add -A effphys_validation/CI_*RTL_SIM.txt
+          git commit -m '[skip ci] test: record RTL pass-fail marker' || true
+          git push origin HEAD:effphys-200fps-rtl-verify-20260820
