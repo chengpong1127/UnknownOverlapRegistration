@@ -1,9 +1,9 @@
 name: eda-fetch-20260820
 
 on:
-  push:
+  pull_request:
     branches:
-      - eda-fetch-20260820
+      - main
 
 jobs:
   fetch-eda:
