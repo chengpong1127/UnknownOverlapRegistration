@@ -1,0 +1,64 @@
+RUN_RC=1
+COMMIT=36817707b0718675e411682bfbb022aac0ab7ba9
+--- REGRESSION LOG ---
+=== P3Q4 / P4Q2 FUNCTIONAL RTL SIM ===
+PQ_GROUPS vectors=5000 scalar_output_sums_checked=30000 errors=0
+PQ_GROUPS_PASS
+tb_pq_groups.sv:60: $finish called at 5000000 (1ps)
+=== VERILATOR LINT ===
+%Warning-MULTITOP: p4q2_conv3x3_group.sv:2:8: Multiple top level modules
+                                            : ... Suggest see manual; fix the duplicates, or use --top-module to select top.
+                   ... For warning description see https://verilator.org/warn/MULTITOP?v=5.020
+                   ... Use "/* verilator lint_off MULTITOP */" and lint_on around source to disable this message.
+                                            : ... Top module 'p3q4_conv3x3_group'
+    2 | module p3q4_conv3x3_group (
+      |        ^~~~~~~~~~~~~~~~~~
+                                            : ... Top module 'p4q2_conv3x3_group'
+    2 | module p4q2_conv3x3_group (
+      |        ^~~~~~~~~~~~~~~~~~
+%Warning-WIDTHEXPAND: p4q2_conv3x3_group.sv:29:25: Operator ADD expects 24 bits on the RHS, but RHS's ARRAYSEL generates 16 bits.
+                                                 : ... note: In instance 'p4q2_conv3x3_group'
+   29 |             sum0 = sum0 + p0[i];
+      |                         ^
+%Warning-WIDTHEXPAND: p4q2_conv3x3_group.sv:30:25: Operator ADD expects 24 bits on the RHS, but RHS's ARRAYSEL generates 16 bits.
+                                                 : ... note: In instance 'p4q2_conv3x3_group'
+   30 |             sum1 = sum1 + p1[i];
+      |                         ^
+%Warning-WIDTHEXPAND: p3q4_conv3x3_group.sv:40:25: Operator ADD expects 24 bits on the RHS, but RHS's ARRAYSEL generates 16 bits.
+                                                 : ... note: In instance 'p3q4_conv3x3_group'
+   40 |             sum0 = sum0 + p0[i];
+      |                         ^
+%Warning-WIDTHEXPAND: p3q4_conv3x3_group.sv:41:25: Operator ADD expects 24 bits on the RHS, but RHS's ARRAYSEL generates 16 bits.
+                                                 : ... note: In instance 'p3q4_conv3x3_group'
+   41 |             sum1 = sum1 + p1[i];
+      |                         ^
+%Warning-WIDTHEXPAND: p3q4_conv3x3_group.sv:42:25: Operator ADD expects 24 bits on the RHS, but RHS's ARRAYSEL generates 16 bits.
+                                                 : ... note: In instance 'p3q4_conv3x3_group'
+   42 |             sum2 = sum2 + p2[i];
+      |                         ^
+%Warning-WIDTHEXPAND: p3q4_conv3x3_group.sv:43:25: Operator ADD expects 24 bits on the RHS, but RHS's ARRAYSEL generates 16 bits.
+                                                 : ... note: In instance 'p3q4_conv3x3_group'
+   43 |             sum3 = sum3 + p3[i];
+      |                         ^
+%Warning-UNUSEDSIGNAL: int8_packed_mul2.sv:19:40: Bits of signal are not used: 'packed_p'[32]
+                                                : ... note: In instance 'p4q2_conv3x3_group.G_P4Q2[35].u01'
+   19 |     (* use_dsp = "yes" *) logic [32:0] packed_p;
+      |                                        ^~~~~~~~
+%Warning-UNUSEDSIGNAL: int8_packed_mul2.sv:29:25: Bits of signal are not used: 'corr0'[17:16]
+                                                : ... note: In instance 'p4q2_conv3x3_group.G_P4Q2[35].u01'
+   29 |     logic signed [17:0] corr0, corr1;
+      |                         ^~~~~
+%Warning-UNUSEDSIGNAL: int8_packed_mul2.sv:29:32: Bits of signal are not used: 'corr1'[17:16]
+                                                : ... note: In instance 'p4q2_conv3x3_group.G_P4Q2[35].u01'
+   29 |     logic signed [17:0] corr0, corr1;
+      |                                ^~~~~
+=== XC7 SYNTHESIS ===
+Warning: Replacing memory \p3 with list of registers. See p3q4_conv3x3_group.sv:0
+Warning: Replacing memory \p2 with list of registers. See p3q4_conv3x3_group.sv:0
+Warning: Replacing memory \p1 with list of registers. See p3q4_conv3x3_group.sv:0
+Warning: Replacing memory \p0 with list of registers. See p3q4_conv3x3_group.sv:0
+Warning: Replacing memory \p1 with list of registers. See p4q2_conv3x3_group.sv:0
+Warning: Replacing memory \p0 with list of registers. See p4q2_conv3x3_group.sv:0
+SYNTH P3Q4: DSP48E1=0 RAMB36E1=0 RAMB18E1=0 LUT=3736 FF=0
+SYNTH P4Q2: DSP48E1=0 RAMB36E1=0 RAMB18E1=0 LUT=2540 FF=0
+P3Q4 DSP mismatch: 0 != 54
