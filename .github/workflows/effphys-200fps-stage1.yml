@@ -1,0 +1,55 @@
+name: EfficientPhys 200 FPS Stage1 RTL
+
+on:
+  push:
+    branches: [effphys-200fps-rtl-verify-20260820]
+    paths:
+      - 'effphys_200fps_rtl/**'
+      - '.github/workflows/effphys-200fps-stage1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  simulate-synthesize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: effphys-200fps-rtl-verify-20260820
+      - name: Install EDA
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y iverilog verilator yosys
+      - name: Run Stage1 regression
+        id: regression
+        shell: bash
+        run: |
+          set +e
+          bash effphys_200fps_rtl/run_stage1.sh
+          rc=$?
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Record result
+        if: always()
+        shell: bash
+        run: |
+          cd effphys_200fps_rtl
+          rm -f STAGE1_PASS.txt STAGE1_FAIL.txt
+          rc='${{ steps.regression.outputs.rc }}'
+          result=STAGE1_FAIL.txt
+          [ "$rc" = "0" ] && result=STAGE1_PASS.txt
+          {
+            echo "RUN_RC=$rc"
+            echo "COMMIT=$GITHUB_SHA"
+            echo "--- REGRESSION LOG ---"
+            cat build/STAGE1_RESULT.txt 2>/dev/null || true
+          } > "$result"
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add STAGE1_PASS.txt STAGE1_FAIL.txt 2>/dev/null || true
+          git add -A
+          git commit -m '[skip ci] test: record EfficientPhys Stage1 RTL result' || true
+          git push origin HEAD:effphys-200fps-rtl-verify-20260820
