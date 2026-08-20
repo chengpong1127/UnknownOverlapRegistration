@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - effphys-v3-ci-scratch
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'effphys_v3_ci/**'
+      - '.github/workflows/effphys_v3_ci.yml'
   workflow_dispatch:
 
 jobs:
@@ -13,18 +19,32 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Icarus and Yosys
+      - name: Install native Linux EDA
         run: |
           sudo apt-get update
-          sudo apt-get install -y iverilog yosys
+          sudo apt-get install -y iverilog yosys verilator
           iverilog -V
+          vvp -V
           yosys -V
+          verilator --version
 
-      - name: Cache EDA Debian packages for Drive backup
+      - name: Cache Debian EDA packages
         run: |
           mkdir -p eda_debs
           cd eda_debs
-          apt-get download iverilog yosys || true
+          apt-get download iverilog yosys verilator berkeley-abc || true
+          cd ..
+
+      - name: Download official OSS CAD Suite Linux x64 backup
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p eda_official
+          cd eda_official
+          gh release download 2026-07-30 \
+            --repo YosysHQ/oss-cad-suite-build \
+            --pattern 'oss-cad-suite-linux-x64-*' || true
+          ls -lah
           cd ..
 
       - name: Run exact RTL regression and XC7 synthesis
@@ -32,6 +52,14 @@ jobs:
           chmod +x effphys_v3_ci/proto_f2/scripts/run_ci.sh
           cd effphys_v3_ci/proto_f2
           ./scripts/run_ci.sh
+
+      - name: Run Verilator lint cross-check
+        run: |
+          verilator --lint-only -Wall -Wno-fatal \
+            effphys_v3_ci/proto_f2/rtl/winograd_f2x2_3x3_int8.sv \
+            effphys_v3_ci/proto_f2/tb/tb_winograd_f2x2_3x3_int8.sv \
+            --top-module tb_winograd_f2x2_3x3_int8 \
+            2>&1 | tee effphys_v3_ci/proto_f2/build/verilator_lint.log
 
       - name: Upload RTL logs
         if: always()
@@ -45,6 +73,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: effphys-v3-linux-eda-debs
-          path: eda_debs/
+          name: effphys-v3-linux-eda-backup
+          path: |
+            eda_debs/
+            eda_official/
           if-no-files-found: warn
