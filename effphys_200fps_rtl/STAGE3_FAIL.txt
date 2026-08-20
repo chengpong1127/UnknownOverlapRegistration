@@ -1,0 +1,9 @@
+RUN_RC=1
+COMMIT=354b791f711602301939a54868eeab24894ee70e
+--- REGRESSION LOG ---
+=== PIXEL ENGINE FUNCTIONAL/CYCLE RTL SIM ===
+C2_CYCLE_MISMATCH got=89 exp=88
+PIXEL_ENGINES outputs_checked=320 errors=1
+PIXEL_SCHEDULE Conv2=88cycles Conv3=256cycles Conv4=512cycles per valid spatial pixel
+FATAL: tb_pixel_engines.sv:136: pixel engine functional/cycle verification failed
+       Time: 13826000  Scope: tb_pixel_engines
