@@ -1,0 +1,68 @@
+name: EfficientPhys RTL verification
+
+on:
+  push:
+    branches:
+      - effphys-200fps-rtl-verify-20260820
+  workflow_dispatch:
+
+jobs:
+  rtl-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install EDA tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y iverilog verilator yosys
+          iverilog -V | head -n 3
+          verilator --version
+          yosys -V
+      - name: Decode validation bundle
+        shell: bash
+        run: |
+          set -euxo pipefail
+          test -s effphys_validation/effphys_validation_bundle.b64
+          mkdir -p /tmp/effphys_bundle
+          base64 -d effphys_validation/effphys_validation_bundle.b64 > /tmp/effphys_bundle.bin
+          file /tmp/effphys_bundle.bin
+          if gzip -t /tmp/effphys_bundle.bin 2>/dev/null; then
+            if gzip -dc /tmp/effphys_bundle.bin | tar -tf - >/tmp/bundle_list.txt 2>/dev/null; then
+              gzip -dc /tmp/effphys_bundle.bin | tar -xf - -C /tmp/effphys_bundle
+            else
+              gzip -dc /tmp/effphys_bundle.bin > /tmp/effphys_bundle/payload
+            fi
+          elif unzip -t /tmp/effphys_bundle.bin >/dev/null 2>&1; then
+            unzip -q /tmp/effphys_bundle.bin -d /tmp/effphys_bundle
+          else
+            cp /tmp/effphys_bundle.bin /tmp/effphys_bundle/payload
+          fi
+          find /tmp/effphys_bundle -maxdepth 4 -type f -printf '%p\n' | sort | tee /tmp/decoded_files.txt
+      - name: Run validation bundle
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cd /tmp/effphys_bundle
+          if [ -x ./run_validation.sh ]; then
+            ./run_validation.sh |& tee /tmp/effphys_validation.log
+          elif [ -f ./run_validation.sh ]; then
+            bash ./run_validation.sh |& tee /tmp/effphys_validation.log
+          elif [ -x ./run_all.sh ]; then
+            ./run_all.sh |& tee /tmp/effphys_validation.log
+          elif [ -f ./run_all.sh ]; then
+            bash ./run_all.sh |& tee /tmp/effphys_validation.log
+          else
+            echo 'No runner found at bundle root' | tee /tmp/effphys_validation.log
+            find . -maxdepth 4 -type f -print | sort
+            exit 2
+          fi
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: effphys-rtl-validation-logs
+          path: |
+            /tmp/decoded_files.txt
+            /tmp/effphys_validation.log
+          if-no-files-found: ignore
