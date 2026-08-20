@@ -1,0 +1,32 @@
+name: eda-fetch-20260820
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  fetch-eda:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Download official YosysHQ Linux x64 EDA components
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p eda
+          base="https://github.com/YosysHQ/oss-cad-suite-build/releases/download/bucket-linux-x64"
+          for f in linux-x64-iverilog.tgz linux-x64-verilator.tgz linux-x64-yosys.tgz linux-x64-abc.tgz; do
+            curl --fail --location --retry 5 --retry-delay 2 "$base/$f" -o "eda/$f"
+          done
+          sha256sum eda/*.tgz | tee eda/SHA256SUMS.txt
+          ls -lh eda/
+
+      - name: Upload EDA bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: oss-cad-linux-x64-components-20260820
+          path: eda/
+          if-no-files-found: error
+          retention-days: 3
