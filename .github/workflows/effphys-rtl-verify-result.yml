@@ -1,0 +1,86 @@
+name: EfficientPhys RTL verification result
+
+on:
+  push:
+    branches:
+      - effphys-200fps-rtl-verify-20260820
+    paths-ignore:
+      - effphys_validation/CI_RESULT.txt
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  rtl-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: effphys-200fps-rtl-verify-20260820
+      - name: Install EDA tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y iverilog verilator yosys
+          {
+            echo "UTC=$(date -u +%FT%TZ)"
+            echo "IVERILOG=$(iverilog -V 2>&1 | head -n 1)"
+            echo "VERILATOR=$(verilator --version 2>&1)"
+            echo "YOSYS=$(yosys -V 2>&1)"
+          } > /tmp/tool_versions.txt
+      - name: Decode and validate
+        id: validate
+        shell: bash
+        run: |
+          set +e
+          mkdir -p /tmp/effphys_bundle
+          base64 -d effphys_validation/effphys_validation_bundle.b64 > /tmp/effphys_bundle.bin
+          decode_rc=$?
+          if [ $decode_rc -eq 0 ]; then
+            if gzip -t /tmp/effphys_bundle.bin 2>/dev/null; then
+              if gzip -dc /tmp/effphys_bundle.bin | tar -tf - >/dev/null 2>&1; then
+                gzip -dc /tmp/effphys_bundle.bin | tar -xf - -C /tmp/effphys_bundle
+              else
+                gzip -dc /tmp/effphys_bundle.bin > /tmp/effphys_bundle/payload
+              fi
+            elif unzip -t /tmp/effphys_bundle.bin >/dev/null 2>&1; then
+              unzip -q /tmp/effphys_bundle.bin -d /tmp/effphys_bundle
+            else
+              cp /tmp/effphys_bundle.bin /tmp/effphys_bundle/payload
+            fi
+          fi
+          find /tmp/effphys_bundle -maxdepth 5 -type f -printf '%P\n' | sort > /tmp/decoded_files.txt
+          run_rc=99
+          cd /tmp/effphys_bundle
+          if [ -f ./run_validation.sh ]; then
+            bash ./run_validation.sh > /tmp/validation.log 2>&1
+            run_rc=$?
+          elif [ -f ./run_all.sh ]; then
+            bash ./run_all.sh > /tmp/validation.log 2>&1
+            run_rc=$?
+          else
+            echo "NO_RUNNER" > /tmp/validation.log
+            run_rc=98
+          fi
+          {
+            cat /tmp/tool_versions.txt
+            echo "DECODE_RC=$decode_rc"
+            echo "RUN_RC=$run_rc"
+            echo "--- DECODED FILES ---"
+            cat /tmp/decoded_files.txt
+            echo "--- VALIDATION LOG ---"
+            cat /tmp/validation.log
+          } > /tmp/CI_RESULT.txt
+          echo "run_rc=$run_rc" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Commit result file
+        if: always()
+        shell: bash
+        run: |
+          cp /tmp/CI_RESULT.txt effphys_validation/CI_RESULT.txt
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add effphys_validation/CI_RESULT.txt
+          git commit -m "[skip ci] test: record EfficientPhys RTL validation result" || true
+          git push origin HEAD:effphys-200fps-rtl-verify-20260820
