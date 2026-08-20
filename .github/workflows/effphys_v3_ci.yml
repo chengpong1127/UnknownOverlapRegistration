@@ -1,0 +1,50 @@
+name: EfficientPhys v3 RTL CI
+
+on:
+  push:
+    branches:
+      - effphys-v3-ci-scratch
+  workflow_dispatch:
+
+jobs:
+  f2_exact_and_synth:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Icarus and Yosys
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y iverilog yosys
+          iverilog -V
+          yosys -V
+
+      - name: Cache EDA Debian packages for Drive backup
+        run: |
+          mkdir -p eda_debs
+          cd eda_debs
+          apt-get download iverilog yosys || true
+          cd ..
+
+      - name: Run exact RTL regression and XC7 synthesis
+        run: |
+          chmod +x effphys_v3_ci/proto_f2/scripts/run_ci.sh
+          cd effphys_v3_ci/proto_f2
+          ./scripts/run_ci.sh
+
+      - name: Upload RTL logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: effphys-v3-f2-logs
+          path: effphys_v3_ci/proto_f2/build/
+          if-no-files-found: warn
+
+      - name: Upload Linux EDA packages
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: effphys-v3-linux-eda-debs
+          path: eda_debs/
+          if-no-files-found: warn
