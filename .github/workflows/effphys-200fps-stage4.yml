@@ -1,0 +1,52 @@
+name: EfficientPhys 200 FPS Stage4 Dense1 Full Size
+
+on:
+  push:
+    branches: [effphys-200fps-rtl-verify-20260820]
+    paths:
+      - 'effphys_200fps_rtl/**'
+      - '.github/workflows/effphys-200fps-stage4.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  full-dense1-stress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: effphys-200fps-rtl-verify-20260820
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y iverilog verilator yosys
+      - id: regression
+        shell: bash
+        run: |
+          set +e
+          bash effphys_200fps_rtl/run_stage4.sh
+          rc=$?
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Record result
+        if: always()
+        shell: bash
+        run: |
+          cd effphys_200fps_rtl
+          rm -f STAGE4_PASS.txt STAGE4_FAIL.txt
+          rc='${{ steps.regression.outputs.rc }}'
+          result=STAGE4_FAIL.txt
+          [ "$rc" = "0" ] && result=STAGE4_PASS.txt
+          {
+            echo "RUN_RC=$rc"
+            echo "COMMIT=$GITHUB_SHA"
+            echo "--- REGRESSION LOG ---"
+            cat build4/STAGE4_RESULT.txt 2>/dev/null || true
+          } > "$result"
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add -A
+          git commit -m '[skip ci] test: record EfficientPhys Stage4 Dense1 result' || true
+          git push origin HEAD:effphys-200fps-rtl-verify-20260820
